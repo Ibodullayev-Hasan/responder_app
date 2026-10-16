@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
+import { FaqService } from './faq.service';
+import { ProcessedMessage } from './entities/processed-message.entity';
 
 @Injectable()
 export class InstagramService {
-  constructor(private readonly http: HttpService) {}
+  constructor(
+    private readonly http: HttpService,
+    private readonly faq: FaqService,
+    @InjectRepository(ProcessedMessage)
+    private readonly processed: Repository<ProcessedMessage>,
+  ) { }
 
   async processWebhook(body: any) {
     if (body.object !== 'instagram') return;
@@ -13,20 +22,26 @@ export class InstagramService {
       for (const event of entry.messaging ?? []) {
         const senderId = event.sender?.id;
         const text = event.message?.text;
+        const mid = event.message?.mid;
 
-        // O'z xabarlaringiz (echo) ga javob bermang, aks holda cheksiz loop bo'ladi
         if (!senderId || !text || event.message?.is_echo) continue;
+        if (mid && (await this.isDuplicate(mid))) continue;
 
-        await this.sendText(senderId, this.buildReply(text));
+        const reply = await this.faq.findAnswer(text);
+        await this.sendText(senderId, reply);
       }
     }
   }
 
-  private buildReply(text: string): string {
-    const t = text.toLowerCase();
-    if (t.includes('narx')) return "Narxlar haqida ma'lumot: ...";
-    if (t.includes('salom')) return 'Assalomu alaykum! Qanday yordam bera olaman?';
-    return "Xabaringiz uchun rahmat! Tez orada javob beramiz.";
+  // Meta bir xil eventni qayta yuborsa, ikkinchi marta javob bermaslik uchun
+  private async isDuplicate(mid: string): Promise<boolean> {
+    try {
+      await this.processed.insert({ mid });
+      return false;
+    } catch (e: any) {
+      if (e.code === '23505') return true; // PostgreSQL: takroriy kalit
+      throw e;
+    }
   }
 
   private async sendText(recipientId: string, text: string) {

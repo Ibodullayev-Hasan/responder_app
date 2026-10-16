@@ -5,6 +5,7 @@ import { InstagramController } from './instagram.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FaqRule } from './entities/faq-rule.entity';
 import { ProcessedMessage } from './entities/processed-message.entity';
+import { FaqService } from './faq.service';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { ProcessedMessage } from './entities/processed-message.entity';
     HttpModule,
   ],
   controllers: [InstagramController],
-  providers: [InstagramService],
+  providers: [InstagramService, FaqService],
   exports: [InstagramService],
 })
 export class InstagramModule { }
