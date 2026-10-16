@@ -31,9 +31,8 @@ export class InstagramController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-hub-signature-256') signature: string,
   ) {
+    console.log('WEBHOOK BODY:', JSON.stringify(req.body));
     this.assertSignature(req.rawBody, signature);
-
-    // Meta tez 200 kutadi, shuning uchun await qilmaymiz
     this.ig.processWebhook(req.body).catch(console.error);
     return 'EVENT_RECEIVED';
   }
